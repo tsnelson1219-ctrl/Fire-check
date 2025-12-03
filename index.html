@@ -22,7 +22,7 @@
         .page {
             width: 210mm;
             min-height: 297mm;
-            padding: 15mm;
+            padding: 12mm;
             margin: 10mm auto;
             border: 1px solid #d1d5db;
             border-radius: 5px;
@@ -72,7 +72,7 @@
         
         /* Specific styling for the dense instruction text */
         .instruction-text {
-            font-size: 0.7rem; 
+            font-size: 0.5rem; 
             line-height: 1.2;
             text-align: left;
         }
@@ -84,43 +84,62 @@
         }
 
         /* --- Print Optimization for A4 Single Page --- */
-        @media print {
+    @media print {
+            /* 1. @page 規則設定紙張大小和邊距 */
+            @page {
+                size: A4; /* 設定紙張為A4大小 */
+                margin: 1mm; /* 設定頁面邊界為1mm */
+            }
+
+            /* 2. 移除背景、陰影，隱藏控制面板 */
             body {
                 background-color: white;
                 margin: 0;
                 padding: 0;
+                font-size: 8pt; /* 設定基礎字體大小 */
             }
             .page {
-                /* Forcing A4 dimensions */
                 width: 210mm;
                 height: 297mm; 
                 min-height: 297mm;
                 margin: 0;
-                padding: 10mm; /* Reduced padding for print */
+                padding: 5mm; 
                 border: none;
                 box-shadow: none;
-                /* Apply slight scaling to ensure ALL content fits on one page */
                 transform: scale(0.95); 
                 transform-origin: top; 
             }
             .no-print {
                 display: none !important;
             }
-            /* Adjust fonts for better fit in print */
-            table, th, td {
-                font-size: 10.5pt; /* Smaller table text */
-                padding: 3px;
-            }
-            .instruction-text {
-                font-size: 9pt; /* Smaller instruction text */
-            }
-            input, textarea {
-                border: none;
-                font-size: 10.5pt; 
-            }
+
+            /* 3. 調整標題字體大小 */
             h2 {
-                font-size: 16pt;
+                font-size: 12pt; /* 設定您要的第一段標題大小 */
             }
+
+            /* 4. 調整表格字體大小和內距 */
+            table {
+                width: 100%;       
+                font-size: 8pt;    
+                border-collapse: collapse; 
+            }
+            th, td {
+                padding: 0.3mm 0.3mm; 
+                border: 1px solid #000;
+            }
+
+            /* 5. 調整其他元素 */
+            .instruction-text {
+                font-size: 8pt; 
+            }
+             p {
+                margin-bottom: 0.3em; /* 縮小段落間距 */
+            }
+            a[href]:after {
+                content: none; /* 隱藏列印時的連結網址 */
+            }
+        }
         }
     </style>
 </head>
@@ -142,11 +161,11 @@
         </div>
         <!-- Action Buttons -->
         <div class="flex gap-2 items-center">
-            <button id="undoBtn" onclick="undo()" class="bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600 text-sm disabled-btn" disabled>上一步 (Undo)</button>
-            <button id="redoBtn" onclick="redo()" class="bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600 text-sm disabled-btn" disabled>下一步 (Redo)</button>
-            <button onclick="resetData()" class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 text-sm">重置當月資料</button>
-            <button onclick="saveData()" class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm">手動儲存</button>
-            <button onclick="exportToImage()" class="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 text-sm">下載 JPG</button>
+            <button id="undoBtn" onclick="undo()" class="bg-gray-700 text-white px-3 py-1 rounded hover:bg-gray-800 text-sm disabled-btn" disabled>上一步 (Undo)</button>
+            <button id="redoBtn" onclick="redo()" class="bg-gray-700 text-white px-3 py-1 rounded hover:bg-gray-800 text-sm disabled-btn" disabled>下一步 (Redo)</button>
+            <button onclick="resetData()" class="bg-gray-700 text-white px-3 py-1 rounded hover:bg-gray-800 text-sm">重置當月資料</button>
+            <button onclick="saveData()" class="bg-gray-700 text-white px-3 py-1 rounded hover:bg-gray-800 text-sm">手動儲存</button>
+            <button onclick="exportToImage()" class="bg-gray-700 text-white px-3 py-1 rounded hover:bg-gray-800 text-sm">下載 JPG</button>
             <button onclick="window.print()" class="bg-gray-700 text-white px-3 py-1 rounded hover:bg-gray-800 text-sm">列印 / PDF</button>
         </div>
         <div class="w-full text-xs text-gray-500 mt-1">
@@ -161,11 +180,13 @@
             <h2 class="text-2xl font-bold border-b-2 border-black inline-block pb-1">日常火源暨避難設施自行檢查表 (每週)</h2>
         </div>
 
-        <div class="flex justify-between mb-2 text-sm font-bold">
-            <div>實施人員：<input type="text" id="inspectorName" class="border-b border-black w-32 text-left px-1" placeholder="輸入姓名"></div>
-            <div>負責區域：<input type="text" id="areaName" class="border-b border-black w-48 text-left px-1" value="辦公區域"></div>
-            <div>月份：<span id="displayYear"></span>年 <span id="displayMonth"></span>月</div>
-        </div>
+        <!-- 將父容器的 class 調整為 flex items-center gap-4 -->
+<div class="flex items-center gap-4 mb-2 text-sm font-bold">
+    <!-- 將這三個子 div 放在同一行 -->
+    <span>實施人員：<input type="text" id="inspectorName" class="border-b border-black w-32 text-left px-1" placeholder="輸入姓名"></span>
+    <span>負責區域：<input type="text" id="areaName" class="border-b border-black w-48 text-left px-1" value="辦公區域"></span>
+    <span>月份：<span id="displayYear"></span>年 <span id="displayMonth"></span>月</span>
+</div>
 
         <table>
             <thead>
