@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -14,9 +15,7 @@
         body {
             font-family: 'Noto Sans TC', sans-serif;
             background-color: #f3f4f6;
-            /* 確保列印背景顏色 */
             -webkit-print-color-adjust: exact;
-            print-color-adjust: exact; 
         }
 
         /* A4 Paper Simulation (Screen View) */
@@ -122,10 +121,6 @@
             h2 {
                 font-size: 16pt;
             }
-            /* Hide the default browser headers/footers (user still needs to disable in dialog) */
-            @page {
-                margin: 0;
-            }
         }
     </style>
 </head>
@@ -147,13 +142,12 @@
         </div>
         <!-- Action Buttons -->
         <div class="flex gap-2 items-center">
-            <!-- 統一為藍色風格 -->
-            <button id="undoBtn" onclick="undo()" class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm disabled-btn" disabled>上一步 (Undo)</button>
-            <button id="redoBtn" onclick="redo()" class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm disabled-btn" disabled>下一步 (Redo)</button>
-            <button onclick="resetData()" class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm">重置當月資料</button>
+            <button id="undoBtn" onclick="undo()" class="bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600 text-sm disabled-btn" disabled>上一步 (Undo)</button>
+            <button id="redoBtn" onclick="redo()" class="bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600 text-sm disabled-btn" disabled>下一步 (Redo)</button>
+            <button onclick="resetData()" class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 text-sm">重置當月資料</button>
             <button onclick="saveData()" class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm">手動儲存</button>
-            <button onclick="exportToImage()" class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm">下載 JPG</button>
-            <button onclick="window.print()" class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm">列印 / PDF</button>
+            <button onclick="exportToImage()" class="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 text-sm">下載 JPG</button>
+            <button onclick="window.print()" class="bg-gray-700 text-white px-3 py-1 rounded hover:bg-gray-800 text-sm">列印 / PDF</button>
         </div>
         <div class="w-full text-xs text-gray-500 mt-1">
             * 提示：點擊「日期/星期」欄位可將該日手動標記為「假日」(例如國定假日)，檢查日(O)會自動往前遞補。
@@ -255,7 +249,7 @@
         // --- History Management ---
         function takeSnapshot(clearRedo = true) {
             // Only take a snapshot if the state has changed significantly
-            const currentState = JSON.stringify({ manualHolidays, customValues, currentYear, currentMonth, inspectorName: inspectorName.value, areaName: areaName.value });
+            const currentState = JSON.stringify({ manualHolidays, customValues, currentYear, currentMonth });
             const lastState = undoStack.length > 0 ? JSON.stringify(undoStack[undoStack.length - 1].serializedState) : null;
 
             if (currentState !== lastState) {
@@ -263,9 +257,7 @@
                     serializedState: currentState,
                     state: { 
                         manualHolidays: JSON.parse(JSON.stringify(manualHolidays)), // Deep copy
-                        customValues: JSON.parse(JSON.stringify(customValues)),
-                        inspector: inspectorName.value,
-                        area: areaName.value
+                        customValues: JSON.parse(JSON.stringify(customValues)) 
                     },
                     year: currentYear,
                     month: currentMonth
@@ -283,8 +275,6 @@
         function applySnapshot(snapshot) {
             manualHolidays = snapshot.state.manualHolidays;
             customValues = snapshot.state.customValues;
-            inspectorName.value = snapshot.state.inspector || "";
-            areaName.value = snapshot.state.area || "辦公區域";
             
             // If the month/year changed in the snapshot, update selectors
             if (currentYear !== snapshot.year || currentMonth !== snapshot.month) {
@@ -295,14 +285,14 @@
             }
             
             renderTable();
-            // Re-save to local storage after applying history state, but don't take a new snapshot here
+            // Re-save to local storage after applying history state
             saveData(false); 
         }
 
         function undo() {
             if (undoStack.length <= 1) return; // Need at least one state before current
             
-            // 1. Save current state to redoStack (current state is always the last in undoStack)
+            // 1. Save current state to redoStack
             const currentState = undoStack.pop();
             redoStack.push(currentState);
 
@@ -318,11 +308,9 @@
             // 1. Get next state from redoStack
             const nextState = redoStack.pop();
 
-            // 2. Apply next state and manually push back to undoStack
+            // 2. Apply next state (this function automatically pushes to undoStack, so we need to prevent clearing redoStack temporarily)
             manualHolidays = nextState.state.manualHolidays;
             customValues = nextState.state.customValues;
-            inspectorName.value = nextState.state.inspector || "";
-            areaName.value = nextState.state.area || "辦公區域";
             
             // Manually push to undoStack to restore position
             undoStack.push(nextState); 
@@ -336,7 +324,7 @@
             }
 
             renderTable();
-            saveData(false); // Update local storage, but don't take a new snapshot
+            saveData(false); // Update local storage, but don't clear redo stack
             updateHistoryButtons();
         }
 
@@ -358,14 +346,11 @@
             // Listeners
             yearInput.addEventListener('change', updateTable);
             monthInput.addEventListener('change', updateTable);
-            
-            // Input changes trigger saving and history snapshot
-            inspectorName.addEventListener('input', saveData);
-            areaName.addEventListener('input', saveData);
+            inspectorName.addEventListener('input', () => { saveData(); takeSnapshot(); });
+            areaName.addEventListener('input', () => { saveData(); takeSnapshot(); });
 
             loadData();
-            // Initial snapshot after load
-            takeSnapshot(false); 
+            takeSnapshot(false); // Take initial snapshot after load
             renderTable();
         }
 
@@ -374,6 +359,8 @@
             currentMonth = parseInt(monthInput.value);
             renderTable();
             saveData(); 
+            // When month/year changes, it's a structural change, so take a snapshot
+            takeSnapshot();
         }
 
         // --- Core Logic ---
@@ -456,6 +443,7 @@
             }
             
             saveData();
+            takeSnapshot(); // Snapshot after state change
             renderTable();
         }
 
@@ -534,6 +522,7 @@
                     input.onchange = (e) => {
                         customValues[cellKey] = e.target.value;
                         saveData();
+                        takeSnapshot();
                         // Re-render to apply color styles if value changed to O/X/休
                         renderTable(); 
                     };
@@ -553,6 +542,7 @@
                 remarkInput.onchange = (e) => {
                     customValues[remarkKey] = e.target.value;
                     saveData();
+                    takeSnapshot();
                 };
                 tdRemark.appendChild(remarkInput);
                 tr.appendChild(tdRemark);
@@ -588,10 +578,10 @@
                 areaName.value = data.area || "辦公區域";
                 // Restore last viewed month
                 if(data.lastYear !== undefined && data.lastMonth !== undefined) {
+                    yearInput.value = data.lastYear;
+                    monthInput.value = data.lastMonth;
                     currentYear = data.lastYear;
                     currentMonth = data.lastMonth;
-                    yearInput.value = currentYear;
-                    monthInput.value = currentMonth;
                 }
             }
         }
@@ -609,6 +599,7 @@
                     if (key.startsWith(prefix)) delete manualHolidays[key];
                 }
                 saveData();
+                takeSnapshot(); // Snapshot after reset
                 renderTable();
             }
         }
