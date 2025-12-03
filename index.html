@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>日常火源暨避難設施自行檢查表</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- html2canvas for image export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap');
+
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #f3f4f6;
+            -webkit-print-color-adjust: exact;
+        }
+
+        /* A4 Paper Simulation */
+        .page {
+            width: 210mm;
+            min-height: 297mm;
+            padding: 15mm;
+            margin: 10mm auto;
+            border: 1px solid #d1d5db;
+            border-radius: 5px;
+            background: white;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+
+        /* Table Styles */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px; /* Adjusted for A4 fit */
+        }
+
+        th, td {
+            border: 1px solid #000;
+            text-align: center;
+            padding: 4px;
+            vertical-align: middle;
+        }
+
+        th {
+            background-color: #f0f0f0;
+            font-weight: bold;
+        }
+
+        /* Input styling to look like plain text when printing */
+        input[type="text"], textarea {
+            width: 100%;
+            height: 100%;
+            border: none;
+            text-align: center;
+            background: transparent;
+            font-family: inherit;
+            resize: none;
+            outline: none;
+        }
+
+        input[type="text"]:focus, textarea:focus {
+            background-color: #eef2ff;
+        }
+
+        .holiday-row {
+            background-color: #fee2e2; /* Light red for holidays */
+        }
+        
+        .holiday-text {
+            color: #ef4444;
+            font-weight: bold;
+        }
+
+        /* Screen only controls */
+        @media print {
+            body {
+                background-color: white;
+            }
+            .page {
+                margin: 0;
+                border: none;
+                border-radius: 0;
+                width: 100%;
+                box-shadow: none;
+                padding: 0; /* Let printer handle margins */
+            }
+            .no-print {
+                display: none !important;
+            }
+            /* Ensure inputs print their values */
+            input, textarea {
+                border: none;
+            }
+        }
+
+        .vertical-text {
+            writing-mode: vertical-rl;
+            text-orientation: upright;
+            letter-spacing: 2px;
+        }
+
+        .cell-check {
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Control Panel -->
+    <div class="max-w-4xl mx-auto mt-6 mb-4 p-4 bg-white rounded shadow flex flex-wrap gap-4 items-center justify-between no-print">
+        <div class="flex items-center gap-2">
+            <h1 class="text-xl font-bold text-gray-700">檢查表產生器</h1>
+            <input type="number" id="yearInput" class="border rounded p-1 w-20" min="2020" max="2030">
+            <span>年</span>
+            <select id="monthInput" class="border rounded p-1">
+                <option value="0">1月</option><option value="1">2月</option><option value="2">3月</option>
+                <option value="3">4月</option><option value="4">5月</option><option value="5">6月</option>
+                <option value="6">7月</option><option value="7">8月</option><option value="8">9月</option>
+                <option value="9">10月</option><option value="10">11月</option><option value="11">12月</option>
+            </select>
+        </div>
+        <div class="flex gap-2">
+            <button onclick="resetData()" class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 text-sm">重置當月資料</button>
+            <button onclick="saveData()" class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm">手動儲存</button>
+            <button onclick="exportToImage()" class="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 text-sm">下載 JPG</button>
+            <button onclick="window.print()" class="bg-gray-700 text-white px-3 py-1 rounded hover:bg-gray-800 text-sm">列印 / PDF</button>
+        </div>
+        <div class="w-full text-xs text-gray-500 mt-1">
+            * 提示：點擊「日期/星期」欄位可將該日手動標記為「假日」(例如國定假日)，檢查日(O)會自動往前遞補。
+        </div>
+    </div>
+
+    <!-- The Paper (Canvas) -->
+    <div id="captureArea" class="page">
+        <!-- Header -->
+        <div class="text-center mb-4">
+            <h2 class="text-2xl font-bold border-b-2 border-black inline-block pb-1">日常火源暨避難設施自行檢查表 (每週)</h2>
+        </div>
+
+        <div class="flex justify-between mb-2 text-sm font-bold">
+            <div>實施人員：<input type="text" id="inspectorName" class="border-b border-black w-32 text-left px-1" placeholder="輸入姓名"></div>
+            <div>負責區域：<input type="text" id="areaName" class="border-b border-black w-48 text-left px-1" value="辦公區域"></div>
+            <div>月份：<span id="displayYear"></span>年 <span id="displayMonth"></span>月</div>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th rowspan="3" style="width: 50px;">日期</th>
+                    <th rowspan="3" style="width: 40px;">星期</th>
+                    <th colspan="3" class="bg-orange-100">日常火源</th>
+                    <th colspan="4" class="bg-green-100">避難設施</th>
+                    <th rowspan="3" style="width: 80px;">備註<br>(異常處置)</th>
+                </tr>
+                <tr>
+                    <!-- Fire Source Items -->
+                    <th class="text-xs">不需使用電器<br>關閉電源及<br>拔除插頭</th>
+                    <th class="text-xs">其他可燃物<br>管理</th>
+                    <th class="text-xs">電器設備電線<br>外觀及使用<br>情形</th>
+                    <!-- Evacuation Items -->
+                    <th class="text-xs">入門及門把<br>作動是否正常</th>
+                    <th class="text-xs">通道無堆積<br>妨礙緊急出口<br>避難逃生物品</th>
+                    <th class="text-xs">逃生標示<br>是否常亮</th>
+                    <th class="text-xs">通道有確保<br>必要之寬度<br>(0.8m以上)</th>
+                </tr>
+                <tr>
+                    <th colspan="3" class="text-xs text-gray-500">正常打O / 異常打X / 不需檢查打-</th>
+                    <th colspan="4" class="text-xs text-gray-500">正常打O / 異常打X</th>
+                </tr>
+            </thead>
+            <tbody id="checklistBody">
+                <!-- Rows will be generated by JS -->
+            </tbody>
+        </table>
+
+        <!-- Footer -->
+        <div class="mt-4 border border-black p-2 text-xs">
+            <div class="font-bold mb-1">填寫說明:</div>
+            <ol class="list-decimal pl-4 space-y-1">
+                <li>本表單原則每週五實施檢查 (以 "O" 標示)。</li>
+                <li>遇假日則提前至前一個工作日檢查；遇月底最後一個工作日務必檢查。</li>
+                <li>其餘非檢查日以 "-" 標示；休假日以 "休" 標示。</li>
+                <li>符號說明：「O」代表正常；「X」代表異常(需填寫備註並立即改善)；「-」代表本日不需檢查。</li>
+                <li>本資料建議留存3年備查。</li>
+            </ol>
+            <div class="mt-4 flex justify-end items-end gap-4">
+                <div class="font-bold">部門主管簽章：</div>
+                <div class="border-b border-black w-40 h-8"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- State Management ---
+        const today = new Date();
+        let currentYear = today.getFullYear();
+        let currentMonth = today.getMonth(); // 0-11
+        // Use a simple object to store manual holidays: "YYYY-MM-DD": true
+        let manualHolidays = {}; 
+        // Store custom cell values: "YYYY-MM-DD-colIdx": "value"
+        let customValues = {}; 
+
+        // --- DOM Elements ---
+        const yearInput = document.getElementById('yearInput');
+        const monthInput = document.getElementById('monthInput');
+        const tbody = document.getElementById('checklistBody');
+        const displayYear = document.getElementById('displayYear');
+        const displayMonth = document.getElementById('displayMonth');
+        const inspectorName = document.getElementById('inspectorName');
+        const areaName = document.getElementById('areaName');
+
+        // --- Initialization ---
+        function init() {
+            yearInput.value = currentYear;
+            monthInput.value = currentMonth;
+            
+            // Listeners
+            yearInput.addEventListener('change', updateTable);
+            monthInput.addEventListener('change', updateTable);
+            inspectorName.addEventListener('input', saveData);
+            areaName.addEventListener('input', saveData);
+
+            loadData();
+            renderTable();
+        }
+
+        function updateTable() {
+            currentYear = parseInt(yearInput.value);
+            currentMonth = parseInt(monthInput.value);
+            renderTable();
+            saveData(); // Save current view selection
+        }
+
+        // --- Core Logic ---
+        function isWeekend(date) {
+            const day = date.getDay();
+            return day === 0 || day === 6; // 0=Sun, 6=Sat
+        }
+
+        function getDateKey(date) {
+            return `${date.getFullYear()}-${(date.getMonth()+1).toString().padStart(2,'0')}-${date.getDate().toString().padStart(2,'0')}`;
+        }
+
+        function isHoliday(date) {
+            // Check weekend
+            if (isWeekend(date)) return true;
+            // Check manual holiday map
+            const key = getDateKey(date);
+            return manualHolidays[key] === true;
+        }
+
+        function getDaysInMonth(year, month) {
+            return new Date(year, month + 1, 0).getDate();
+        }
+
+        // Logic: Find work days, determine Check Days (O)
+        function calculateStatusMap(year, month) {
+            const daysInMonth = getDaysInMonth(year, month);
+            const statusMap = {}; // Key: day (1-31), Value: 'REST', 'CHECK', 'NONE'
+            
+            let lastWorkingDay = -1;
+
+            // 1. Identify all Rest days first
+            for (let d = 1; d <= daysInMonth; d++) {
+                let date = new Date(year, month, d);
+                if (isHoliday(date)) {
+                    statusMap[d] = 'REST';
+                } else {
+                    statusMap[d] = 'NONE'; // Placeholder
+                    lastWorkingDay = d; // Keep tracking the latest working day
+                }
+            }
+
+            // 2. Identify Check Days based on logic
+            // Rule A: Every Friday is a candidate
+            // Rule B: If Friday is REST, move back to previous working day
+            // Rule C: Last working day of month is ALWAYS a check day
+
+            // Find all Fridays
+            for (let d = 1; d <= daysInMonth; d++) {
+                let date = new Date(year, month, d);
+                if (date.getDay() === 5) { // Friday
+                    // Backtrack if it's a holiday
+                    let checkDayCandidate = d;
+                    while (checkDayCandidate > 0 && statusMap[checkDayCandidate] === 'REST') {
+                        checkDayCandidate--;
+                    }
+                    if (checkDayCandidate > 0) {
+                        statusMap[checkDayCandidate] = 'CHECK';
+                    }
+                }
+            }
+
+            // Apply End of Month Rule
+            if (lastWorkingDay > 0) {
+                statusMap[lastWorkingDay] = 'CHECK';
+            }
+
+            return statusMap;
+        }
+
+        function toggleHoliday(day) {
+            const date = new Date(currentYear, currentMonth, day);
+            const key = getDateKey(date);
+            
+            // Toggle
+            if (manualHolidays[key]) {
+                delete manualHolidays[key];
+            } else {
+                manualHolidays[key] = true;
+            }
+            
+            saveData();
+            renderTable();
+        }
+
+        // --- Rendering ---
+        function renderTable() {
+            tbody.innerHTML = '';
+            displayYear.textContent = currentYear;
+            displayMonth.textContent = currentMonth + 1;
+
+            const daysInMonth = getDaysInMonth(currentYear, currentMonth);
+            const statusMap = calculateStatusMap(currentYear, currentMonth);
+            const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
+
+            for (let d = 1; d <= daysInMonth; d++) {
+                const date = new Date(currentYear, currentMonth, d);
+                const dayOfWeek = weekDays[date.getDay()];
+                const status = statusMap[d];
+                const dateKey = getDateKey(date);
+                
+                const tr = document.createElement('tr');
+                
+                // Style for holidays
+                if (status === 'REST') {
+                    tr.classList.add('holiday-row');
+                }
+
+                // Col 1: Date (Click to toggle holiday)
+                const tdDate = document.createElement('td');
+                tdDate.textContent = d;
+                tdDate.className = "cursor-pointer hover:bg-gray-200 select-none";
+                tdDate.title = "點擊切換是否為假日";
+                tdDate.onclick = () => toggleHoliday(d);
+                tr.appendChild(tdDate);
+
+                // Col 2: Week Day
+                const tdWeek = document.createElement('td');
+                tdWeek.textContent = dayOfWeek;
+                tdWeek.className = "cursor-pointer hover:bg-gray-200 select-none";
+                tdWeek.onclick = () => toggleHoliday(d);
+                if (dayOfWeek === '日' || dayOfWeek === '六' || status === 'REST') {
+                    tdWeek.classList.add('text-red-500', 'font-bold');
+                }
+                tr.appendChild(tdWeek);
+
+                // 7 Content Columns
+                // Indices 0-6 for content
+                for (let i = 0; i < 7; i++) {
+                    const td = document.createElement('td');
+                    const cellKey = `${dateKey}-c${i}`;
+                    
+                    // Determine default content
+                    let defaultContent = "";
+                    if (status === 'REST') {
+                        defaultContent = "休";
+                    } else if (status === 'CHECK') {
+                        defaultContent = "O";
+                    } else {
+                        defaultContent = "-";
+                    }
+
+                    // Check if user manually overwrote this cell
+                    const userVal = customValues[cellKey];
+                    const finalVal = userVal !== undefined ? userVal : defaultContent;
+
+                    // Create Input
+                    const input = document.createElement('input');
+                    input.type = "text";
+                    input.value = finalVal;
+                    
+                    // Styling logic for visual clarity
+                    if (finalVal === 'O') input.classList.add('font-bold', 'text-green-700', 'text-lg');
+                    if (finalVal === '休') input.classList.add('text-gray-400');
+                    if (finalVal === 'X') input.classList.add('text-red-600', 'font-bold', 'text-lg');
+
+                    // Save on change
+                    input.onchange = (e) => {
+                        customValues[cellKey] = e.target.value;
+                        saveData();
+                        // Re-render to apply color styles if value changed to O/X/休
+                        renderTable(); 
+                    };
+
+                    td.appendChild(input);
+                    tr.appendChild(td);
+                }
+
+                // Last Col: Remarks
+                const tdRemark = document.createElement('td');
+                const remarkKey = `${dateKey}-remark`;
+                const remarkInput = document.createElement('input');
+                remarkInput.type = "text";
+                remarkInput.value = customValues[remarkKey] || "";
+                remarkInput.placeholder = "";
+                remarkInput.onchange = (e) => {
+                    customValues[remarkKey] = e.target.value;
+                    saveData();
+                };
+                tdRemark.appendChild(remarkInput);
+                tr.appendChild(tdRemark);
+
+                tbody.appendChild(tr);
+            }
+        }
+
+        // --- Storage ---
+        function saveData() {
+            const data = {
+                manualHolidays,
+                customValues,
+                inspector: inspectorName.value,
+                area: areaName.value,
+                lastYear: currentYear,
+                lastMonth: currentMonth
+            };
+            localStorage.setItem('fireChecklistData', JSON.stringify(data));
+        }
+
+        function loadData() {
+            const raw = localStorage.getItem('fireChecklistData');
+            if (raw) {
+                const data = JSON.parse(raw);
+                manualHolidays = data.manualHolidays || {};
+                customValues = data.customValues || {};
+                inspectorName.value = data.inspector || "";
+                areaName.value = data.area || "辦公區域";
+                // Restore last viewed month
+                if(data.lastYear) {
+                    yearInput.value = data.lastYear;
+                    monthInput.value = data.lastMonth;
+                    currentYear = data.lastYear;
+                    currentMonth = data.lastMonth;
+                }
+            }
+        }
+
+        function resetData() {
+            if(confirm("確定要清除本月所有的手動修改紀錄嗎？(手動假日與輸入內容)")) {
+                // Determine keys for this month to delete
+                const prefix = `${currentYear}-${(currentMonth+1).toString().padStart(2,'0')}`;
+                
+                // Filter out current month keys from global state
+                for (let key in customValues) {
+                    if (key.startsWith(prefix)) delete customValues[key];
+                }
+                for (let key in manualHolidays) {
+                    if (key.startsWith(prefix)) delete manualHolidays[key];
+                }
+                saveData();
+                renderTable();
+            }
+        }
+
+        // --- Export ---
+        function exportToImage() {
+            const element = document.getElementById('captureArea');
+            
+            // Fix input values for canvas capture (html2canvas sometimes misses input values)
+            const inputs = element.querySelectorAll('input');
+            inputs.forEach(input => {
+                input.setAttribute('data-val', input.value); // Backup
+                input.setAttribute('value', input.value); // Force attribute update
+            });
+
+            html2canvas(element, {
+                scale: 2, // Higher resolution
+                useCORS: true,
+                backgroundColor: "#ffffff"
+            }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = `檢查表_${currentYear}_${currentMonth+1}.jpg`;
+                link.href = canvas.toDataURL('image/jpeg', 0.9);
+                link.click();
+            });
+        }
+
+        // Run
+        init();
+
+    </script>
+</body>
+</html>
